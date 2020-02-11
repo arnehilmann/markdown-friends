@@ -4,7 +4,7 @@ IMAGE=arne/markdown-friends:$(VERSION)
 
 build:
 	echo $(IMAGE)
-	docker build . -t $(IMAGE)
+	docker build . -t $(IMAGE) -t quay.io/$(IMAGE)
 
 
 run:
@@ -19,6 +19,7 @@ tag:	build
 
 push:	build
 	docker push $(IMAGE)
+	docker push quay.io/$(IMAGE)
 
 
 .PHONY: build run tag push
