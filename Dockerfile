@@ -1,29 +1,61 @@
-FROM alpine:3.11 as gatherer
+FROM alpine:3.11 as build-trianglify
 
-RUN apk add git curl unzip wget bash openjdk9-jre-headless
-
-WORKDIR /
-
-RUN mkdir /docroot
-
+WORKDIR /tmp
+RUN apk add git curl unzip
 RUN curl -O -L https://github.com/alssndro/trianglify-background-generator/archive/master.zip
-RUN unzip -d /docroot/trianglify-background-generator-master master.zip
-RUN rm -f master.zip
+RUN mkdir /docroot
+RUN unzip -d /docroot/ master.zip
 
+
+
+FROM alpine:3.11 as build-unique-gradient-generator
+
+WORKDIR /tmp
+RUN apk add curl unzip
 RUN curl -L -O https://github.com/tiborsaas/unique-gradient-generator/archive/gh-pages.zip
-RUN unzip gh-pages.zip
-RUN rm -f gh-pages.zip
-RUN mv unique-gradient-generator-gh-pages/ /docroot/unique-gradient-generator
+RUN mkdir /docroot
+RUN unzip -d /docroot gh-pages.zip
+RUN mv /docroot/unique-gradient-generator-gh-pages/ /docroot/unique-gradient-generator
 
+
+
+FROM alpine:3.11 as build-gradient-generator
+
+WORKDIR /tmp
+RUN apk add wget
 RUN wget -kr -np -nH https://tools.superdevresources.com/gradient-generator/
-RUN mv gradient-generator/ /docroot/gradient-generator
+RUN mkdir /docroot
+RUN mv gradient-generator /docroot/
 
-WORKDIR /docroot
+
+
+FROM alpine:3.11 as build-asciiflow2
+
+WORKDIR /tmp
+RUN apk add git bash openjdk9-jre-headless
 RUN git clone https://github.com/lewish/asciiflow2.git
 WORKDIR asciiflow2
 RUN ./compile.sh
 RUN rm -rf .git
-WORKDIR /
+RUN mkdir /docroot
+WORKDIR /tmp
+RUN mv asciiflow2 /docroot/
+
+
+
+FROM alpine:3.11 as build-excalidraw
+
+WORKDIR /tmp
+RUN apk add git npm jq
+RUN git clone https://github.com/excalidraw/excalidraw.git
+WORKDIR excalidraw
+RUN npm install
+RUN npm audit fix
+RUN jq '.homepage = "/excalidraw/"' < package.json > package.json.tmp
+RUN mv package.json.tmp package.json
+RUN npm run build
+RUN mkdir /docroot
+RUN mv build /docroot/excalidraw
 
 
 
@@ -33,11 +65,15 @@ RUN apk add git
 RUN go get github.com/rakyll/statik
 
 WORKDIR /
-
-COPY --from=gatherer /docroot /docroot
-COPY docroot/* /docroot/
+COPY --from=build-trianglify /docroot /docroot
+COPY --from=build-unique-gradient-generator /docroot /docroot
+COPY --from=build-gradient-generator /docroot /docroot
+COPY --from=build-asciiflow2 /docroot /docroot
+COPY --from=build-excalidraw /docroot /docroot
+RUN ls -al /docroot
+COPY docroot/ /docroot/
+RUN ls -al /docroot
 RUN statik -src=/docroot
-RUN ls -al
 
 COPY main.go /main.go
 
